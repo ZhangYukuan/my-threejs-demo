@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>My first three.js app</title>
+		<style>
+			html,body { margin: 0; padding: 0; width: 100%; height: 100%;}
+			canvas { width: 100%; height: 100% }
+      #three-container{
+        width: 100%;
+        height: 100%;
+        margin: 0 auto;
+      }
+		</style>
+	</head>
+	<body>
+    <div id="three-container"></div>
+    <div style="position: fixed; top: 20px;left: 20px;">
+      <input type="text">
+      <button id="btn">绘制图形</button>
+    </div>
+  </body>
+  <script src="js/three.js"></script>
+  <script src="js/OrbitControls.js"></script>
+  <script>
+    
+    var Active = function(){
+      this.threeContainer = null; // threejs容器
+      this.scene = null; // 场景
+      this.camera = null; // 相机
+      this.renderer = null; // 渲染器
+      this.controls = null; // 轨道控制器
+      this.animationId = null; // requestAnimationFrame的id
+      this.mock = '{"container":{"length":3000,"width":2000,"height":1500},"boxlist":[{"x":0,"length":300,"width":200,"y":0,"z":0,"boxId":"box-1","height":200},{"x":0,"length":300,"width":200,"y":0,"z":200,"boxId":"box-2","height":200},{"x":0,"length":300,"width":200,"y":0,"z":400,"boxId":"box-3","height":200},{"x":0,"length":300,"width":200,"y":0,"z":600,"boxId":"box-4","height":200},{"x":0,"length":300,"width":200,"y":0,"z":800,"boxId":"box-5","height":200},{"x":0,"length":300,"width":200,"y":0,"z":1000,"boxId":"box-6","height":200},{"x":0,"length":300,"width":200,"y":0,"z":1200,"boxId":"box-7","height":200},{"x":300,"length":300,"width":200,"y":0,"z":0,"boxId":"box-8","height":200},{"x":300,"length":300,"width":200,"y":0,"z":200,"boxId":"box-9","height":200},{"x":300,"length":300,"width":200,"y":0,"z":400,"boxId":"box-10","height":200},{"x":0,"length":200,"width":100,"y":200,"z":0,"boxId":"box-11","height":50},{"x":0,"length":200,"width":100,"y":200,"z":50,"boxId":"box-12","height":50},{"x":0,"length":200,"width":100,"y":200,"z":100,"boxId":"box-13","height":50},{"x":0,"length":200,"width":100,"y":200,"z":150,"boxId":"box-14","height":50},{"x":0,"length":200,"width":100,"y":200,"z":200,"boxId":"box-15","height":50},{"x":0,"length":200,"width":100,"y":200,"z":250,"boxId":"box-21","height":50},{"x":0,"length":200,"width":100,"y":200,"z":300,"boxId":"box-22","height":50},{"x":300,"length":300,"width":100,"y":0,"z":600,"boxId":"box-17","height":100},{"x":300,"length":300,"width":100,"y":0,"z":700,"boxId":"box-18","height":100},{"x":300,"length":300,"width":100,"y":0,"z":800,"boxId":"box-19","height":50},{"x":300,"length":300,"width":100,"y":0,"z":850,"boxId":"box-20","height":50},{"x":600,"length":100,"width":50,"y":0,"z":0,"boxId":"box-23","height":50},{"x":600,"length":100,"width":50,"y":0,"z":50,"boxId":"box-24","height":50},{"x":600,"length":100,"width":50,"y":0,"z":100,"boxId":"box-25","height":50},{"x":600,"length":100,"width":50,"y":0,"z":150,"boxId":"box-26","height":50},{"x":600,"length":100,"width":50,"y":0,"z":200,"boxId":"box-27","height":50},{"x":600,"length":100,"width":50,"y":0,"z":250,"boxId":"box-28","height":50}]}';
+    };
+    Active.prototype={
+      init:function(){
+        this.initThree() // 初始化
+        this.methods()
+      },
+      methods:function(){
+        // 注册dom事件
+        var $btn = document.querySelector('#btn'),
+        $input = document.querySelector('input'),_this=this;
+        $input.value= this.mock;
+        $btn.onclick = function(){
+          _this.clearThreeMesh()
+          var data = JSON.parse($input.value)
+          _this.init3dContainer(data) // 绘制图形
+        }
+      },  
+      // threejs的准备工作
+      initThree:function(){
+        // 场景
+        this.scene = new THREE.Scene()
+        this.scene.background = new THREE.Color(15790320);
+        
+        // 相机
+        this.camera = new THREE.PerspectiveCamera(45, 3/2, 1, 1e4) // 透视相机  OrthographicCamera（正交相机）
+        
+        // 渲染器挂载容器
+        this.renderer = new THREE.WebGLRenderer({
+          antialias: true, //开启反锯齿
+          alpha: true, //是否可以设置背景色透明
+          precision: 'highp', // highp/mediump/lowp 表示着色精度选择
+          premultipliedAlpha: false, // true/false 表示是否可以设置像素深度（用来度量图像的分辨率）
+          preserveDrawingBuffer: true, // true/false 表示是否保存绘图缓冲
+          maxLights: 3, // 最大灯光数
+          stencil: false // false/true 表示是否使用模板字体或图案
+        })
+        this.renderer.shadowMap.enabled = true
+        // 挂载至容器
+        this.threeContainer = document.getElementById('three-container')
+        const width = this.threeContainer.clientWidth
+        const height = this.threeContainer.clientHeight
+        this.renderer.setSize(width, height)
+        this.threeContainer.appendChild(this.renderer.domElement)
+
+        // 环境光
+        var light = new THREE.AmbientLight(15790320) // 环境光会均匀的照亮场景中的所有物体
+        this.scene.add(light)
+        
+        // 辅助工具
+        var Grid = new THREE.GridHelper(6000, 6000)
+        Grid.position.y = -100
+        Grid.material.opacity = 0.25
+        Grid.material.transparent = !0
+        // this.scene.add(Grid) // 创建底部参照的网线平面（坐标格辅助对象. 坐标格实际上是2维线数组.）
+        var Axis = new THREE.AxesHelper(1000)
+        Axis.position.set(0, 0, 0)
+        this.scene.add(Axis) // 辅助坐标线用于简单模拟3个坐标轴的对象. 红色代表 X 轴. 绿色代表 Y 轴. 蓝色代表 Z 轴.
+        
+        // 轨道控制器
+        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement) // 轨道控制器, 可以使得相机围绕目标进行轨道运动。
+        this.controls.update()
+      },
+      // 清除three的量
+      clearThreeMesh: function(){
+        this.controls&&this.controls.reset()
+        window.cancelAnimationFrame(this.animationId)
+        this.threeContainer&&(this.threeContainer.removeChild(this.renderer.domElement),this.threeContainer=null)
+        this.initThree()
+      },
+      
+      init3dContainer(data) {
+        var container = data.container, // 整体轮廓 长 宽 高；
+        packageNodes = data.boxlist || [] // 各个箱子的起点位置和长宽高
+
+        // 此绘图过程中对应关系为：
+        // X轴- length Y轴- width Z轴- height
+
+        // 旋转坐标系（场景），使其看起来更符合人的视觉
+        this.scene.rotation.x = - Math.PI/2
+        this.scene.rotation.z = - Math.PI/2
+
+        // 动态设置场景偏移，使其基本在容器中间
+        this.scene.translateX(- container.length/3)
+        this.scene.translateZ(- container.height/3)
+
+        // 相机位置根据容器大小动态摆放
+        this.camera.position.set(container.length*2, container.width*2, container.height*2) // 相机位置
+        
+        this.drawContainer(container)
+        this.drawPackage(packageNodes)
+        
+        animate(this)()
+      },
+      // 画容器
+      drawContainer:function(containerData){
+        // 设置线条颜色
+        var Mesh = new THREE.LineBasicMaterial({
+          color: 0x890fd5
+        })
+        var contentBox = new THREE.Geometry()
+        
+        var Vector3List = [
+          new THREE.Vector3(0, 0, 0), // 1/9/15
+          new THREE.Vector3(0, 0, containerData.height), // 2/14
+          new THREE.Vector3(0, containerData.width, containerData.height), // 3/11
+          new THREE.Vector3(0, containerData.width, 0), // 4/10
+          new THREE.Vector3(containerData.length, containerData.width, 0), // 5/17
+          new THREE.Vector3(containerData.length, containerData.width, containerData.height), // 6/12
+          new THREE.Vector3(containerData.length, 0, containerData.height), // 7/13
+          new THREE.Vector3(containerData.length, 0, 0), // 8/16
+          new THREE.Vector3(0, 0, 0), // 1/9/15
+          new THREE.Vector3(0, containerData.width, 0), // 4/10
+          new THREE.Vector3(0, containerData.width, containerData.height), // 3/11
+          new THREE.Vector3(containerData.length, containerData.width, containerData.height), // 6/12
+          new THREE.Vector3(containerData.length, 0, containerData.height), // 7/13
+          new THREE.Vector3(0, 0, containerData.height), // 2/14
+          new THREE.Vector3(0, 0, 0), // 1/9/15
+          new THREE.Vector3(containerData.length, 0, 0), // 8/16
+          new THREE.Vector3(containerData.length, containerData.width, 0), // 5/17
+        ]
+        contentBox.vertices = Vector3List
+        var Line = new THREE.Line(contentBox, Mesh)
+        this.scene.add(Line)
+      },
+      // 画小箱子
+      drawPackage:function(packageList){
+        packageList.forEach(item => {
+          // BoxGeometry是四边形的原始几何类，
+          // 它通常使用构造函数所提供的“width”、“height”、“depth”
+          // 参数来创建立方体或者不规则四边形
+          var box = new THREE.BoxGeometry(item.length, item.width, item.height)
+          // 一个以简单着色（平面或线框）方式来绘制几何体的材质, 此处主要绘制几何体的颜色
+          var Mesh = new THREE.MeshLambertMaterial({
+            color: 0.4 * Math.random() * 16777215,
+            opacity: 1,
+            transparent: !0,
+            wireframe: !1
+          })
+          // 画出网格图形并且定义材质（颜色）
+          var MeshItem = new THREE.Mesh(box, Mesh) 
+          MeshItem.position.copy(new THREE.Vector3(item.x + item.length/2, item.y + item.width/2, item.z + item.height/2))
+          MeshItem.castShadow = !0
+          MeshItem.receiveShadow = !0
+          this.scene.add(MeshItem)
+        })
+      }
+    }
+    function animate(obj){
+      return function(){
+        obj.animationId = window.requestAnimationFrame(animate(obj))
+        obj.controls.update()
+        obj.renderer.render( obj.scene, obj.camera )
+      }
+    }
+    new Active().init()
+  </script>
+</html>
